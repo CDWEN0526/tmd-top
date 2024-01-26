@@ -12,7 +12,7 @@ if command -v apt-get > /dev/null; then
     sudo apt-get update
     
     # 安装Python3、pip3和net-tools等基础软件包
-    sudo apt-get install -y python3 python3-pip net-tools libjpeg-turbo-dev zlib1g-dev libtiff5-dev libffi-dev
+    sudo apt-get install -y python3 python3-pip net-tools zlib1g-dev libtiff5-dev libffi-dev
     
 elif command -v yum > /dev/null || command -v dnf > /dev/null; then
     if command -v yum; then
@@ -21,7 +21,7 @@ elif command -v yum > /dev/null || command -v dnf > /dev/null; then
         sudo yum check-update
         
         # 安装对应的RHEL/CentOS系统下的基础软件包
-        sudo yum install -y python3 python3-pip net-tools libjpeg-turbo-devel zlib-devel libtiff-devel libffi-devel
+        sudo yum install -y python3 python3-pip net-tools zlib-devel libtiff-devel libffi-devel
         
     elif command -v dnf; then
         echo "检测到基于Red Hat的系统，将使用dnf进行操作。"
@@ -29,7 +29,7 @@ elif command -v yum > /dev/null || command -v dnf > /dev/null; then
         sudo dnf check-update
         
         # 安装Fedora或RHEL 8+系统的基础软件包
-        sudo dnf install -y python3 python3-pip net-tools libjpeg-turbo-devel zlib-devel libtiff-devel libffi-devel
+        sudo dnf install -y python3 python3-pip net-tools zlib-devel libtiff-devel libffi-devel
         
     fi
     
@@ -63,7 +63,7 @@ if [ -f "tmd-top.py" ]; then
     sudo cp tmd-top.py /usr/sbin/tmd-top
     
     # 赋予执行权限
-    sudo chmod +x /usr/sbin/tmd-top
+    sudo chmod 777 /usr/sbin/tmd-top
     
     echo "tmd-top.py 已成功复制至 /usr/sbin/tmd-top，并赋予了执行权限。"
     

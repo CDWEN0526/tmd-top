@@ -503,7 +503,7 @@ async def run(stop_event):
             printr(layout,end="")
         else:
             layout = Layout()
-            fast = "command:\n\n q(退出) \n\n e(返回主页) \n\n p2346(查pid是2346的流量详情) \n\n t2(刷新频率改2秒) \n\n u(上传排序) \n\n d(下载排序) \n\n c(连接数排序) \n\n i(ip数量排序)"
+            fast = "command:\n\n q(退出) \n\n p2346(查pid是2346的流量详情) \n\n t2(刷新频率改2秒) \n\n u(上传排序) \n\n d(下载排序) \n\n c(连接数排序) \n\n i(ip数量排序)"
             layout.split_column(
                 Layout(Padding(""),size=1),
                 Layout(Panel(content),name="top",ratio=3),

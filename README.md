@@ -36,7 +36,7 @@ TMD-TOP并没有使用TUI库，由于本人比较忙没有时间去学习TUI库�
 快速安装
 
 ```shell
-git clone https://github.com/CDWEN0526/tmd-top.git && cd tmd-top && /bin/bash install.sh
+git clone https://gitee.com/Davin168/tmd-top.git && cd tmd-top && /bin/bash install.sh
 ```
 
 #### 使用说明
@@ -45,6 +45,12 @@ git clone https://github.com/CDWEN0526/tmd-top.git && cd tmd-top && /bin/bash in
 
 ```shell
 root@davin-system:~/tmd-top# tmd-top
+```
+
+或
+
+```shell
+root@davin-system:~/tmd-top# /usr/sbin/tmd-top
 ```
 
 执行命令的效果
