@@ -47,7 +47,7 @@ TMD-TOP并没有使用TUI库，由于本人比较忙没有时间去学习TUI库�
 
 #### 安装教程
 
-快速安装
+快速安装/升级安装
 
 ```shell
 git clone https://gitee.com/Davin168/tmd-top.git && cd tmd-top && /bin/bash install.sh
@@ -105,6 +105,52 @@ u(上传排序)
 d(下载排序)
 
 l10(显示10条数据,默认:10)
+```
+
+#### 参数说明
+
+```shell
+[root@davin-system ~]# tmd-top -h
+usage: tmd-top [-h] [-l] [-w] [-t] [-p P] [-n N] [-c] [-i] [-d] [-u]
+
+执行选项：
+
+optional arguments:
+  -h, --help  show this help message and exit
+  -l          监听服务流量图
+  -w          程序请求外部流量图
+  -t          网络流量图
+  -p P        查询指定pid流量详情
+  -n N        指向返回条数
+  -c          对连接数排序
+  -i          对ip数排序
+  -d          对下载排序
+  -u          对上传排序
+
+```
+
+**查看监听服务流量视图**
+
+![](image/a1.png)
+
+**查看程序访问外流量**
+
+![](image/a2.png)
+
+**查看网卡流量**
+
+![1706498180556](image/1706498180556.png)
+
+**注意**
+
+以下参数对网卡视图无效，网卡流量视图没有排序功能，以及条数限制，因网卡数量不会出奇的多，所以未作排序以及返回条数限制
+
+```txt
+  -n N        指向返回条数
+  -c          对连接数排序
+  -i          对ip数排序
+  -d          对下载排序
+  -u          对上传排序
 ```
 
 

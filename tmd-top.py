@@ -15,6 +15,7 @@ from rich.panel import Panel
 from rich.padding import Padding
 import getpass
 import time
+import argparse
 
 def pidRichTable():
     console = Console()
@@ -360,7 +361,7 @@ def selectTotalListen(conn):
             listen.remote_ip,
             listen.remote_port,
             listen.pid
-    ''' + order_by
+    ''' + order_by + limit + ';'
     select_conn = conn.cursor()
     select_linsten_data = select_conn.execute(select_linsten_sql).fetchall() 
     table,console = homeListenRichTable()
@@ -403,7 +404,7 @@ def selectTotalOut(conn):
         GROUP BY 
             connected.pid,
             connected.program_name
-    ''' + order_by
+    ''' + order_by + limit + ';'
     select_conn = conn.cursor()
     select_out_data = select_conn.execute(select_out_sql).fetchall()
     table,console = homeServerRichTable()
@@ -490,7 +491,7 @@ async def run(stop_event):
         insertData(conn=conn,table="net",data=net)
         if pid_state:
             layout = Layout()
-            pid_fast = "command:\n\n q(退出) \n\n e(返回主页) \n\n t2(刷新频率改2秒) \n\n u(上传排序) \n\n d(下载排序) \n\n l10(显示10条数据,默认:10)"
+            pid_fast = "command:\n\n q(退出) \n\n e(返回主页) \n\n t2(刷新频率改2秒) \n\n u(上传排序) \n\n d(下载排序) \n\n l20(显示20条数据,默认:20)"
             layout.split_column(
                 Layout(size=1),
                 Layout(Panel(content),name="top",ratio=5),
@@ -503,7 +504,7 @@ async def run(stop_event):
             printr(layout,end="")
         else:
             layout = Layout()
-            fast = "command:\n\n q(退出) \n\n p2346(查pid是2346的流量详情) \n\n t2(刷新频率改2秒) \n\n u(上传排序) \n\n d(下载排序) \n\n c(连接数排序) \n\n i(ip数量排序)"
+            fast = "command:\n\n q(退出) \n\n p2346(查pid是2346的流量详情) \n\n t2(刷新频率改2秒) \n\n u(上传排序) \n\n d(下载排序) \n\n c(连接数排序) \n\n i(ip数量排序) \n\n l20(显示20条数据,默认:20)"
             layout.split_column(
                 Layout(Padding(""),size=1),
                 Layout(Panel(content),name="top",ratio=3),
@@ -556,7 +557,7 @@ async def user_input(stop_event):
         if user_input == 'u':
             order_by = """
                         ORDER BY 
-                                upload DESC;
+                                upload DESC
                         """
             pid_order_by = """
                         ORDER BY 
@@ -566,7 +567,7 @@ async def user_input(stop_event):
         if user_input == 'd':
             order_by = """
                         ORDER BY 
-                                download DESC;
+                                download DESC
                         """
             pid_order_by = """
                         ORDER BY 
@@ -576,13 +577,13 @@ async def user_input(stop_event):
         if user_input == "c":
             order_by = """
                         ORDER BY 
-                                connect_ip DESC;
+                                connect_ip DESC
                         """
         #ip数排序
         if user_input == "i":
             order_by = """
                         ORDER BY 
-                                ip_num DESC;
+                                ip_num DESC
                         """
         #条数限制
         if "l" in user_input:
@@ -593,6 +594,91 @@ async def user_input(stop_event):
                             LIMIT 
                         """ + str(limit_num)
         print(f"你输入的指令是: {user_input}")
+
+#接收参数
+def receiveParameters():
+    parser = argparse.ArgumentParser(description='执行选项：')
+    parser.add_argument('-l', action='store_true', help='监听服务流量图')
+    parser.add_argument('-w', action='store_true', help='程序请求外部流量图')
+    parser.add_argument('-t', action='store_true', help='网络流量图')
+    parser.add_argument('-p',type=str,help="查询指定pid流量详情")
+    parser.add_argument('-n',type=str,help="指向返回条数")
+    parser.add_argument('-c', action='store_true', help='对连接数排序')
+    parser.add_argument('-i', action='store_true', help='对ip数排序')
+    parser.add_argument('-d', action='store_true', help='对下载排序')
+    parser.add_argument('-u', action='store_true', help='对上传排序')
+    args = parser.parse_args()
+    return args
+
+#响应接收的参数指令
+def responseParameter(args):
+    global order_by, pid_order_by
+    conn = connectSqlite("/tmp/sql.db")
+    if args.c:
+        order_by = """
+                    ORDER BY 
+                            connect_ip DESC
+                    """
+    if args.i:
+        order_by = """
+                    ORDER BY 
+                            ip_num DESC
+                    """
+    if args.d:
+        order_by = """
+                    ORDER BY 
+                            download DESC
+                    """
+        pid_order_by = """
+                        ORDER BY 
+                                download DESC
+                        """
+    if args.u:
+        order_by = """
+                    ORDER BY 
+                            upload DESC
+                    """
+        pid_order_by = """
+                    ORDER BY 
+                            upload DESC
+                    """
+    if args.n:
+        global limit
+        limit = '''
+            LIMIT 
+        ''' + args.n
+    if args.l:
+        ss_command = localExecuteCommand('ss -ni  state established  && echo "Davin system" && sleep 1 && ss -ni  state established')
+        netstat_command = localExecuteCommand('netstat -atpn')
+        one,two = ssDataProcessing(ss_command)
+        net = netstatDataProcessing(netstat_command)
+        insertData(conn=conn,table='one',data=one)
+        insertData(conn=conn,table='two',data=two)
+        insertData(conn=conn,table="net",data=net)
+        printr(selectTotalListen(conn=conn))
+    if args.w:
+        ss_command = localExecuteCommand('ss -ni  state established  && echo "Davin system" && sleep 1 && ss -ni  state established')
+        netstat_command = localExecuteCommand('netstat -atpn')
+        one,two = ssDataProcessing(ss_command)
+        net = netstatDataProcessing(netstat_command)
+        insertData(conn=conn,table='one',data=one)
+        insertData(conn=conn,table='two',data=two)
+        insertData(conn=conn,table="net",data=net)
+        printr(selectTotalOut(conn=conn))
+    if args.t:
+        cat_command = localExecuteCommand("cat /proc/net/dev")
+        time.sleep(1)
+        cat_command_sleep_1 = localExecuteCommand("cat /proc/net/dev")
+        printr(networkCardTraffic(cat_command,cat_command_sleep_1))
+    if args.p:
+        ss_command = localExecuteCommand('ss -ni  state established  && echo "Davin system" && sleep 1 && ss -ni  state established')
+        netstat_command = localExecuteCommand('netstat -atpn')
+        one,two = ssDataProcessing(ss_command)
+        net = netstatDataProcessing(netstat_command)
+        insertData(conn=conn,table='one',data=one)
+        insertData(conn=conn,table='two',data=two)
+        insertData(conn=conn,table="net",data=net)
+        printr(selectDetails(conn=conn,pid=args.p))
 
 
 
@@ -612,7 +698,7 @@ if __name__ == "__main__":
     order_by = """
     ORDER BY 
             upload DESC,
-            download DESC;
+            download DESC
     """
     #默认order_by
     pid_order_by = """
@@ -622,28 +708,35 @@ if __name__ == "__main__":
     """
     #默认限制条数
     limit = """
-        LIMIT 10
+        LIMIT 20
     """
     pid_number = None
     pid_state = False
     sleep_time = 1
     program_quit = False
-    stop_event = asyncio.Event()
-    if sys.version_info.major == 3 and sys.version_info.minor >= 7:
-        asyncio.run(main())
-    elif sys.version_info.major == 3 and sys.version_info.minor < 7:
-        loop = asyncio.get_event_loop()
-        try:
-            main_task = loop.create_task(main())
-            loop.run_forever()
-        except KeyboardInterrupt:  # 按Ctrl+C时退出程序
-            print('已退出TMD-TOP！')
-            stop_event.set()  # 如果有必要触发stop_event以结束任务
-        finally:
-             # 关闭所有挂起的任务并关闭事件循环
-            main_task.cancel()  # 首先取消主任务
-            for task in asyncio.Task.all_tasks():
-                task.cancel()
-            loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks(),return_exceptions=True))
-            loop.close()
-    print('已退出TMD-TOP！')
+    args = receiveParameters()
+    if args.l or args.w or args.t or args.p:
+        limit = """
+        LIMIT 10000
+        """
+        responseParameter(args=args)
+    else:
+        stop_event = asyncio.Event()
+        if sys.version_info.major == 3 and sys.version_info.minor >= 7:
+            asyncio.run(main())
+        elif sys.version_info.major == 3 and sys.version_info.minor < 7:
+            loop = asyncio.get_event_loop()
+            try:
+                main_task = loop.create_task(main())
+                loop.run_forever()
+            except KeyboardInterrupt:  # 按Ctrl+C时退出程序
+                print('已退出TMD-TOP！')
+                stop_event.set()  # 如果有必要触发stop_event以结束任务
+            finally:
+                # 关闭所有挂起的任务并关闭事件循环
+                main_task.cancel()  # 首先取消主任务
+                for task in asyncio.Task.all_tasks():
+                    task.cancel()
+                loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks(),return_exceptions=True))
+                loop.close()
+        print('已退出TMD-TOP！')
