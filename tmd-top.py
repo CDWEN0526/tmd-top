@@ -462,9 +462,9 @@ def networkCardTraffic(data,data_sleep_1):
                 two_tbytes = two_line_list[9]
                 rbytes = convert_network_traffic(size_in_kb=(int(two_rbytes) - int(one_rbytes)) / 1024)
                 tbytes = convert_network_traffic(size_in_kb=(int(two_tbytes) - int(one_tbytes)) / 1024)
-                contents.append(one_face)
-                contents.append(rbytes)    
+                contents.append(one_face)    
                 contents.append(tbytes)
+                contents.append(rbytes)
                 table.add_row(*contents) 
     return table     
 
