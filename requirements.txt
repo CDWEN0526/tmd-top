@@ -1,2 +1,4 @@
-asyncio==3.4.3
-rich==12.6.0
+textual==0.47.1
+typing_extensions==4.9.0
+rich==13.7.0
+requests==2.0.0

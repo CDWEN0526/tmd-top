@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/local/python38/bin/python3
 # -*- coding: utf-8 -*-
 from textual.app import App,ComposeResult
 from textual.widgets import Static,Header,Footer,DataTable,Input,Log
