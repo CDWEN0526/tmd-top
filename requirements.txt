@@ -1,4 +1,0 @@
-textual==0.47.1
-typing_extensions==4.9.0
-rich==13.7.0
-geoip2==4.8.0
