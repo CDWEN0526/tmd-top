@@ -11,11 +11,18 @@ TMD-TOP是一款专为Linux终端设计的网络流量监控TUI工具，它能�
 
 #### 版本要求
 
+注意：
+
 ```txt
 python >= 3.8
 ```
 
+#### 环境要求
 
+```txt
+安装pidstat命令(apt install sysstat)
+安装netstat命令(apt install net-tools)
+```
 
 #### 数据展示图
 
@@ -33,7 +40,7 @@ python >= 3.8
 
 **详细pid流量**
 
-![1706783643101](image/1706783643101.png)
+![1708251779184](image/1708251779184.png)
 
 #### 优点
 
@@ -54,13 +61,7 @@ python >= 3.8
 方式一（系统安装的python是3.8+）
 
 ```shell
-rm -rf ./tmd-top && git clone https://gitee.com/Davin168/tmd-top.git && cd tmd-top && /bin/bash install.sh
-```
-
-方式二（系统安装的python非3.8+，自动安装python3.8+）
-
-```shell
-rm -rf ./tmd-top && git clone https://gitee.com/Davin168/tmd-top.git && cd tmd-top && /bin/bash ready_install.sh
+sudo pip install tmd-top
 ```
 
 #### 使用说明
@@ -74,7 +75,13 @@ root@davin-system:~/tmd-top# tmd-top
 或
 
 ```shell
-root@davin-system:~/tmd-top# /usr/bin/tmd-top
+root@davin-system:~/tmd-top# /usr/local/bin/tmd-top
+```
+
+或（家目录.local/bin下）
+
+```shell
+root@davin-system:~/tmd-top# ~/.local/bin/tmd-top
 ```
 
 
@@ -84,6 +91,10 @@ root@davin-system:~/tmd-top# /usr/bin/tmd-top
 快捷指令
 
 ![1706783668332](image/1706783668332.png)
+
+#### IP识别
+
+ip识别是使用geoip来实现的，目前geoip的更新时间是： 2024-02-16 
 
 
 
