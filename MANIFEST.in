@@ -1,2 +1,0 @@
-include src/tmd_top/data/*.mmdb
-include src/tmd_top/data/*.db
