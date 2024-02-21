@@ -1,35 +1,43 @@
-#  TMD-TOP network monitoring 
+![logo](image/logo.png)
 
-[[ 中文说明 ](/README.md)]
 
-####  Introduction
 
-TMD-TOP is a network traffic monitoring tool dedicated to Linux terminals. It can display the number of IP connections between the server and each client, upload and download speeds, and bandwidth usage in real time. It deeply analyzes the impact of various services and scripts on network resources, helping operation and maintenance personnel to quickly identify and optimize high-bandwidth-consuming services to ensure efficient and stable system performance. With its concise and easy-to-read table view and flexible filtering function, TMD-TOP is an ideal assistant for administrators in network management and performance tuning.
+
+
+
+
+####  🌈Introduction
+
+|🌐[[ 中文说明 ](/README.md)]  |🌐 [[ English   Introduction ](/en-README.md)] |
+
+😈TMD🖕TOP is a network traffic monitoring tool dedicated to Linux terminals. It can display the number of IP connections between the server and each client, upload and download speeds, and bandwidth usage in real time. It deeply analyzes the impact of various services and scripts on network resources, helping operation and maintenance personnel to quickly identify and optimize high-bandwidth-consuming services to ensure efficient and stable system performance. With its concise and easy-to-read table view and flexible filtering function, TMD-TOP is an ideal assistant for administrators in network management and performance tuning.
+
+ Easily order a star. ⭐
 
 ![1708502942300](image/1708502942300.png)
 
-#### Version requirements
+#### 🌈Version requirements
 
-**Notice**：
+👊**Notice**：
 
 ```txt
 python >= 3.8
 ```
 
-#### Environmental requirements
+#### 🌈Environmental requirements
 
 ```txt
 Install pidstat command (apt install sysstat)
 Install netstat command (apt install net-tools)
 ```
 
-#### Installation tutorial
+#### 🌈Installation tutorial
 
 ```shell
 sudo pip install tmd-top
 ```
 
-#### Instructions for use
+#### 🌈Instructions for use
 
 Execute the tmd-top command on the terminal
 
@@ -49,9 +57,9 @@ or（Under home directory .local/bin）
 root@davin-system:~/tmd-top# ~/.local/bin/tmd-top
 ```
 
+👊**Note: ** only services with traffic activities are displayed.
 
-
-#### shortcut command
+#### 🌈shortcut command
 
 shortcut command
 
@@ -74,7 +82,7 @@ shortcut command
 
 
 
-#### IP identification
+#### 🌈IP identification
 
 **Data source:** IP identification is implemented using geoip. The current update time of geoip is: 2024-02-16
 
@@ -82,7 +90,7 @@ shortcut command
 
 
 
-#### Data display chart
+#### 🌈Data display chart
 
 **Server monitors traffic**
 
@@ -100,11 +108,11 @@ shortcut command
 
 ![1708502358692](image/1708502358692.png)
 
-#### creative ideas
+#### 🌈creative ideas
 
 ​    As a Linux operation and maintenance personnel, I find that the traffic view function of FinalShell is extremely efficient and practical when troubleshooting network problems. Although I have tried tools such as iftop and nload, their ease of use and visualization are not as good as FinalShell. Therefore, in view of my reliance on FinalShell's traffic monitoring function, I decided to learn from its design ideas and develop an intuitive and accurate network traffic monitoring tool to meet my work needs.
 
-#### Software Architecture
+#### 🌈Software Architecture
 1. Here is the list text data collection module: execute Linux underlying commands (such as netstat) through Python's subprocess or os library to obtain the status information of the server's internal TCP connection in real time. This information includes but is not limited to client IP, port, connection status, transmission rate and other key indicators.
 2. Here is the list text database storage module: Use SQLite as a local persistent storage solution to write the collected TCP connection data into a database table in a structured form. This module is responsible for creating and managing database connections, as well as performing SQL insert operations.
 
