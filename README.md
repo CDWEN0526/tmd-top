@@ -1,6 +1,6 @@
-![logo](image/logo.png)
+<img src="image/logo.png" alt="logo" style="zoom:150%;" />
 
-
+------
 
 
 
