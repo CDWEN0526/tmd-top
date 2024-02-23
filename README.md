@@ -35,6 +35,12 @@ python >= 3.8
 sudo pip install tmd-top
 ```
 
+#### 🌈更新
+
+```shell
+sudo pip install --upgrade tmd-top
+```
+
 ####  🌈 使用说明
 
 在终端上执行运行tmd-top命令
@@ -55,11 +61,16 @@ root@davin-system:~/tmd-top# /usr/local/bin/tmd-top
 root@davin-system:~/tmd-top# ~/.local/bin/tmd-top
 ```
 
- **👊注意:**只展示有流量活动的服务
+
+
+**👊注意:**
+只展示有流量活动的服务
+
+
 
 ####   🌈 快捷指令
 
- 快捷指令
+快捷指令
 
 ![1708502426439](image/1708502426439.png)
 

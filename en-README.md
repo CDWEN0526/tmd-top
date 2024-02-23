@@ -35,6 +35,12 @@ Install netstat command (apt install net-tools)
 sudo pip install tmd-top
 ```
 
+#### 🌈Update
+
+```shell
+sudo pip install --upgrade tmd-top
+```
+
 #### 🌈Instructions for use
 
 Execute the tmd-top command on the terminal
@@ -55,7 +61,9 @@ or（Under home directory .local/bin）
 root@davin-system:~/tmd-top# ~/.local/bin/tmd-top
 ```
 
-**👊Note: ** only services with traffic activities are displayed.
+**👊Note:**
+only services with traffic activities are displayed.
+
 
 #### 🌈shortcut command
 
