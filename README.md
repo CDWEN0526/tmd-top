@@ -22,13 +22,6 @@
 python >= 3.8
 ```
 
-####  🌈 环境要求
-
-```txt
-安装pidstat命令(apt install sysstat)
-安装netstat命令(apt install net-tools)
-```
-
 ####  🌈 安装教程
 
 ```shell
@@ -48,25 +41,6 @@ sudo pip install --upgrade tmd-top
 ```shell
 root@davin-system:~/tmd-top# tmd-top
 ```
-
-或
-
-```shell
-root@davin-system:~/tmd-top# /usr/local/bin/tmd-top
-```
-
-或（家目录.local/bin下）
-
-```shell
-root@davin-system:~/tmd-top# ~/.local/bin/tmd-top
-```
-
-
-
-**👊注意:**
-只展示有流量活动的服务
-
-
 
 ####   🌈 快捷指令
 
@@ -93,10 +67,7 @@ root@davin-system:~/tmd-top# ~/.local/bin/tmd-top
 
 ####  🌈 IP识别
 
-**数据来源:** ip识别是使用geoip来实现的，目前geoip的更新时间是：  ⌚️ 2024-02-16 
-
-**中文显示地区:** 将操作系统的语言改成zh_CN，`locale`命令查看系统语言。
-
+**数据来源:** ip识别是使用geoip来实现的，目前geoip的更新时间是：  ⌚️ 2024-08-13
 
 
 ####  🌈 数据展示图
@@ -128,7 +99,7 @@ root@davin-system:~/tmd-top# ~/.local/bin/tmd-top
 
 3. 数据处理模块：对原始数据进行预处理和格式化，例如转换为适合存储在SQLite中的格式，并可能进一步进行数据分析，计算出如每秒上传下载速度、并发连接数等高级统计指标。
 
-4. 用户界面展示模块：基于textual库构建终端界面，动态显示从数据库中读取的TCP连接统计数据。该
+4. 用户界面展示模块：基于textual库构建终端界面，动态显示从数据库中读取的TCP连接统计数据。
 
 
 
