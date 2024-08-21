@@ -60,7 +60,12 @@ or（Under home directory .local/bin）
 ```shell
 root@davin-system:~/tmd-top# ~/.local/bin/tmd-top
 ```
+<<<<<<< HEAD
 
+
+
+=======
+>>>>>>> d3bb76958231453c9fc5e28ae3b9a1816f4dfe3a
 **👊Note:**
 only services with traffic activities are displayed.
 
