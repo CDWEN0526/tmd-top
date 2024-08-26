@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="tmd-top",
-    version="2.1.3",
+    version="2.1.5",
     author="Davin",
     author_email="949178863@qq.com",
     description="linux服务器网络流量分析工具，详细到ip连接情况",

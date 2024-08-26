@@ -17,7 +17,6 @@ from textual.coordinate import Coordinate
 from textual._two_way_dict import TwoWayDict
 from typing_extensions import Self
 import time
-import random
 import os
 import json
 from geoip2.database import Reader
@@ -43,15 +42,15 @@ class DataTables(DataTable):
                 self.columns.clear()
                 self._column_locations = TwoWayDict({})
             self._require_update_dimensions = True
-            self.cursor_coordinate = Coordinate(0, 0)
-            self.hover_coordinate = Coordinate(0, 0)
+            #self.cursor_coordinate = Coordinate(0, 0)
+            #self.hover_coordinate = Coordinate(0, 0)
             self._label_column = Column(self._label_column_key, Text(), auto_width=True)
             self._labelled_row_exists = False
             self.refresh()
             #self.scroll_x = 0
             #self.scroll_y = 0
-            self.scroll_target_x = 0
-            self.scroll_target_y = 0
+            #self.scroll_target_x = 0
+            #self.scroll_target_y = 0
             return self
 
 class GridLayout(App):
@@ -132,14 +131,14 @@ author: Davin
 gitee: https://gitee.com/Davin168/tmd-top
 github: https://github.com/CDWEN0526/tmd-top
 email: 949178863@qq.com
-version: v2.1.3
-geoip更新时间: 2024-08-13
+version: v2.1.5
+geoip更新时间: 2024-08-20
 更新: pip install tmd-top --upgrade
     """
     ENABLE_COMMAND_PALETTE = False
     BINDINGS = [
         ("q","quit","(退出)"),
-        ('v','input_command','(输入PID)'),
+        ('v','input_command','(搜索)'),
         ('t','slow_sleep_time','(慢速刷新数据)'),
         ('y','sleep_time','(恢复数据刷新)'),
         ('c','sort_connect','(连接数排序)'),
@@ -173,6 +172,7 @@ geoip更新时间: 2024-08-13
     ip = None
     log_value = None
     search_string = None
+    listen_or_outsude = None
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         yield DataTables(id="network", classes="box",name="network")
@@ -313,7 +313,7 @@ geoip更新时间: 2024-08-13
         details_dom.clear()
         for i in self.detailed:
             data = list(i)
-            details_dom.add_row(*data,key=str(i[0]) + '_' + str(i[1]))
+            details_dom.add_row(*data)
         row_number = self.query_one('#details').row_count
         details_dom.border_subtitle = "总共 " + str(row_number)
         
@@ -333,6 +333,7 @@ geoip更新时间: 2024-08-13
                 instruction_display.update('当前PID: ' + value[0])
                 self.outside_value = None
                 self.log_value = value[0]
+                self.listen_or_outsude = True
             if event.control.name == 'outside':
                 self.outside_value = value
                 self.pid_number = value[0]
@@ -344,6 +345,7 @@ geoip更新时间: 2024-08-13
                 instruction_display.update('当前PID: ' + value[0])
                 self.listen_value = None
                 self.log_value = value[0]
+                self.listen_or_outsude = False
             if event.control.name == "details":
                 log.write_line('\n选择的IP: \n  ' + str(value[0]))
                 self.log_value = value[0]
@@ -849,13 +851,13 @@ geoip更新时间: 2024-08-13
                 net_listen.program_name  as program_name,
                 net_listen.local_ip  as ip,
                 net_listen.local_port  as port,
-                COUNT(DISTINCT one.remote_ip) as ip_num,
-                COUNT(one.remote_ip) as connect_ip,
+                COUNT(DISTINCT netstat_en.remote_ip) as ip_num,
+                COUNT(netstat_en.remote_ip) as connect_ip,
                 sum(two.bytes_acked - one.bytes_acked) / 1024 as upload,
                 sum(two.bytes_received - one.bytes_received) / 1024 as download,
                 ps.cpu as cpu,
                 ps.men as men
-            from (select * FROM net where state = "LISTEN" ) as net_listen
+            from (select * FROM net where state = "LISTEN" GROUP by local_port ) as net_listen
             LEFT JOIN (select * from net where state = "ESTABLISHED") as netstat_en on net_listen.local_port == netstat_en.local_port
             LEFT join one on one.local_port == netstat_en.local_port
                 and one.remote_ip == netstat_en.remote_ip
@@ -896,8 +898,8 @@ geoip更新时间: 2024-08-13
                 SELECT 
                     netstat.pid as pid,
                     netstat.program_name as program_name,
-                    count(DISTINCT netstat.local_ip) as ip_num,
-                    count(netstat.local_ip) as connect_ip,
+                    count(DISTINCT netstat.remote_ip) as ip_num,
+                    count(netstat.remote_ip) as connect_ip,
                     ROUND(SUM(two.bytes_acked - one.bytes_acked) / 1024 ,2) as upload,
                     ROUND(SUM(two.bytes_received - two.bytes_received) /1024 ,2) as download,
                     ps.cpu as cpu,
@@ -906,8 +908,12 @@ geoip更新时间: 2024-08-13
                     (SELECT * FROM net WHERE state = 'ESTABLISHED'and local_port not in (select local_port  from net WHERE state = 'LISTEN')) as netstat
                 LEFT JOIN one on netstat.local_ip == one.local_ip 
                     AND netstat.local_port == one.local_port 
+                    AND netstat.remote_ip == one.remote_ip
+                    AND netstat.remote_port == one.remote_port 
                 LEFT JOIN two on netstat.local_ip == two.local_ip
                     AND netstat.local_port == two.local_port 
+                    AND netstat.remote_ip == two.remote_ip
+                    AND netstat.remote_port == two.remote_port 
                 LEFT JOIN ps on ps.pid == netstat.pid
                 GROUP BY 
                     netstat.pid,
@@ -960,28 +966,49 @@ geoip更新时间: 2024-08-13
     #获取详细流量数据
     def selectDetails(self,conn,pid):
         select_conn = conn.cursor()
-        select_established_sql = '''
-        /*查询详细pid进程的连接信息*/
-            SELECT 
-                netstat.remote_ip as remote_ip,
-                netstat.remote_port as remote_port,
-                (two.bytes_acked - one.bytes_acked) / 1024  as upload,
-                (two.bytes_received - one.bytes_received) / 1024  as download
-            FROM 
-                (SELECT * FROM  net WHERE state = "ESTABLISHED") as netstat
-            LEFT JOIN one ON netstat.local_ip == one.local_ip 
-                AND netstat.local_port == one.local_port 
-                AND netstat.remote_ip == one.remote_ip 
-                AND netstat.remote_port = one.remote_port 
-            LEFT JOIN two ON netstat.local_ip == two.local_ip 
-                AND netstat.local_port == two.local_port 
-                AND netstat.remote_ip == two.remote_ip 
-                AND netstat.remote_port == two.remote_port 
-            WHERE 
-                netstat.pid = ?
-                or netstat.local_port in (SELECT local_port from net WHERE pid = ?)
-        ''' + self.pid_order_by + ';'
-        select_established_data =select_conn.execute(select_established_sql,(pid,pid)).fetchall()
+        if self.listen_or_outsude:
+            select_established_sql = '''
+            /*查询详细pid进程的连接信息*/
+                SELECT 
+                    netstat.remote_ip as remote_ip,
+                    netstat.remote_port as remote_port,
+                    (two.bytes_acked - one.bytes_acked) / 1024  as upload,
+                    (two.bytes_received - one.bytes_received) / 1024  as download
+                FROM 
+                    (SELECT * FROM  net WHERE state = "ESTABLISHED") as netstat
+                LEFT JOIN one ON netstat.local_ip == one.local_ip 
+                    AND netstat.local_port == one.local_port 
+                    AND netstat.remote_ip == one.remote_ip 
+                    AND netstat.remote_port = one.remote_port 
+                LEFT JOIN two ON netstat.local_ip == two.local_ip 
+                    AND netstat.local_port == two.local_port 
+                    AND netstat.remote_ip == two.remote_ip 
+                    AND netstat.remote_port == two.remote_port 
+                WHERE 
+                    netstat.local_port in (SELECT local_port from net WHERE pid = ?)
+            ''' + self.pid_order_by + ';'
+        else:
+            select_established_sql = '''
+            /*查询详细pid进程的连接信息*/
+                SELECT 
+                    netstat.remote_ip as remote_ip,
+                    netstat.remote_port as remote_port,
+                    (two.bytes_acked - one.bytes_acked) / 1024  as upload,
+                    (two.bytes_received - one.bytes_received) / 1024  as download
+                FROM 
+                    (SELECT * FROM  net WHERE state = "ESTABLISHED") as netstat
+                LEFT JOIN one ON netstat.local_ip == one.local_ip 
+                    AND netstat.local_port == one.local_port 
+                    AND netstat.remote_ip == one.remote_ip 
+                    AND netstat.remote_port = one.remote_port 
+                LEFT JOIN two ON netstat.local_ip == two.local_ip 
+                    AND netstat.local_port == two.local_port 
+                    AND netstat.remote_ip == two.remote_ip 
+                    AND netstat.remote_port == two.remote_port 
+                WHERE 
+                    netstat.pid = ?
+            ''' + self.pid_order_by + ';'
+        select_established_data =select_conn.execute(select_established_sql,(pid,)).fetchall()
         table = []
         for row in select_established_data:       
             row_list = list(row)
