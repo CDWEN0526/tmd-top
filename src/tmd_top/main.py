@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 from textual.app import App,ComposeResult
-from textual.widgets import Static,Header,Footer,DataTable,Input,Log,Button,TextArea
+from textual.widgets import Static,Header,Footer,DataTable,Input,Log,Button,TextArea,Label,Checkbox,ContentSwitcher
+from textual.containers import ScrollableContainer
+from textual.containers import Horizontal, Vertical,VerticalScroll
 from textual.widgets.data_table import Column 
 from itertools import cycle
 from rich.text import Text
 from textual import events
+from textual.cache import FIFOCache,LRUCache
 from textual._two_way_dict import TwoWayDict
 import sqlite3
 import sys
@@ -15,10 +18,13 @@ import re
 from textual import work
 from textual.coordinate import Coordinate
 from textual._two_way_dict import TwoWayDict
+from textual._styles_cache import StylesCache
 from typing_extensions import Self
 import time
 import os
+import random
 import json
+import string
 from geoip2.database import Reader
 
 class DataTables(DataTable):
@@ -53,13 +59,24 @@ class DataTables(DataTable):
             #self.scroll_target_y = 0
             return self
 
+class WarningWindow(Static):
+    def compose(self) -> ComposeResult:
+        yield Label(id='warning_text')
+        yield Checkbox("不再提醒",id="warning_checkbox")
+        yield Horizontal(
+            Button("[确定]",classes="yes_or_no_button",id="yes_button"),
+            Button("[取消]",classes="yes_or_no_button",id="no_button")
+        )
+
+
+
 class GridLayout(App):
     CSS = """
     Screen {
         layout: grid;
-        grid-size: 3 3;
-        grid-columns: 20% 45% 35%;
-        grid-rows: 45% 45% 10%;
+        grid-size: 4 3;
+        grid-columns: 20% 45% 25% 10% ;
+        grid-rows: 45% 45% 10% ;
     }
 
     Header {
@@ -68,6 +85,44 @@ class GridLayout(App):
         text-align: center;
     }
 
+    .box {
+        height: 100%;
+        border: solid round  #00BFFF 30%;
+        padding: 1 2;
+    }
+
+    #warning_checkbox {
+        color: red;
+    }
+
+    .box:focus, #input_command:focus , #Introduction:focus {
+        height: 100%;
+        border: solid round green 100%;
+        padding: 1 2;
+    }
+
+    .box:hover,  #input_command:hover , #Introduction:hover {
+        height: 100%;
+        border: solid round darkcyan 100%;
+        padding: 1 2;
+    }
+    
+    #box_warning {
+        layer: horizontal;
+        height: 18;
+        width: 100%;
+        opacity: 70%;
+        margin-top: 8;
+        margin-bottom: 8;
+        border: solid round red 100%;
+    }
+
+    .yes_or_no_button {
+        width: 1fr;
+        margin-left: 3;
+        margin-right: 3;
+    }
+    
     #network {
         width: 100%;
         align: center middle;
@@ -81,13 +136,27 @@ class GridLayout(App):
         row-span: 1;
     }
 
-    #details {
-        row-span:2;
+    #details_switcher {
+        column-span: 2;
+        row-span: 2;
     }
 
+    #details_switcher:focus {
+        column-span: 2;
+        row-span: 2;
+        border: solid round green 100%;
+    }
+    
     #export_ip {
         row-span: 1;
-        border: solid red;
+        border: solid #f36c21;
+        text-align: center;
+        width: 100%;
+    }
+
+    #ban_ip {
+        row-span: 1;
+        border: solid #f36c21;
         text-align: center;
         width: 100%;
     }
@@ -98,43 +167,35 @@ class GridLayout(App):
         padding: 1 2;
     }
 
-    #input_command:focus {
-        height: 100%;
-        border: solid round  #d71345 100%;
-        padding: 1 2;
-    }
-
     #Introduction {
         height: 100%;
         border: solid round  #00BFFF 30%;
     }
-    
-    .box {
-        height: 100%;
-        border: solid round  #00BFFF 30%;
-        padding: 1 2;
-    }
-
-    .box:focus {
-        height: 100%;
-        border: solid round #fcf16e 100%;
-        padding: 1 2;
-    }
 
     """
     IntroductionText = """
-===Welcome to TMD-TOP===
-按tab键切换窗口,按住shift键不放,鼠标可选复制;
-Cpu, men 单位 %
+ ===Welcome to TMD-TOP===
 
-author: Davin
-gitee: https://gitee.com/Davin168/tmd-top
-github: https://github.com/CDWEN0526/tmd-top
-email: 949178863@qq.com
-version: v2.1.5
-geoip更新时间: 2024-08-20
-更新: pip install tmd-top --upgrade
+ author: Davin
+ gitee: https://gitee.com/Davin168/tmd-top
+ github: https://github.com/CDWEN0526/tmd-top
+ email: 949178863@qq.com
+ version: v2.1.6
+ geoip更新时间: 2024-08-20
+ 更新: pip install tmd-top --upgrade
+ 复制: 按tab键切换窗口,按住shift键不放,鼠标可选复制;
     """
+    warning_text = """
+ 注意操作！！！
+ 操作封禁IP[{}]
+
+ 封禁ip将会调用系统命令iptables，请确
+ 认已安装iptables，否则封禁功能将无效！
+ 
+ 解封ip需要手动删除iptables规则，请谨
+ 慎操作！
+"""
+
     ENABLE_COMMAND_PALETTE = False
     BINDINGS = [
         ("q","quit","(退出)"),
@@ -165,28 +226,42 @@ geoip更新时间: 2024-08-20
     detailed = reactive([])
     outside = reactive([])
     pid_number = reactive(None)
+    pid_port = None
     davin = None
     sleep_time = 0.8
     listen_value = None
     outside_value = None
     ip = None
+    warning_checkbox_status = False
     log_value = None
     search_string = None
     listen_or_outsude = None
+    AUTO_FOCUS = '#network'
+
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         yield DataTables(id="network", classes="box",name="network")
         yield DataTables(classes="box", id="listen",name="listen")
-        yield DataTables(classes="box",id="details",name="details")
-        yield Log(id="Introduction")
+        with ContentSwitcher(initial='details',classes="box",id="details_switcher"):
+            yield DataTables(id="details",name="details")
+            with VerticalScroll(id="box_warning"):
+                yield Label(id='warning_text')
+                yield Checkbox("不再提醒",id="warning_checkbox")
+                yield Horizontal(
+                    Button("[确定]",classes="yes_or_no_button",id="yes_button"),
+                    Button("[取消]",classes="yes_or_no_button",id="no_button")
+                )
+        yield Log(id="Introduction",classes="box")
         yield DataTables(classes="box",id="outside",name="outside")
         yield Static('当前PID: None',classes="box",id="instruction_display")
-        yield Input(placeholder="请输入搜索关键词",id="input_command")
+        yield Input(placeholder="请输入搜索关键词,支持模糊搜索",id="input_command")
         yield Button('[点击导出IP列表到当前路径下的ip.txt文件]',classes='box',id='export_ip')
+        yield Button('[点击IP封禁]',classes='box',id='ban_ip')
         yield Footer()
 
     def on_mount(self) -> None:
         self.title = "TMD-TOP"
+        self.query_one('#box_warning').border_title = "警 告"
         self.query_one('#network').border_title = "网卡"
         self.query_one('#network').border_subtitle = "总共 0"
         self.query_one('#network').loading = True
@@ -196,9 +271,10 @@ geoip更新时间: 2024-08-20
         self.query_one('#outside').border_title = "运行程序"
         self.query_one('#outside').border_subtitle = "总共 0"
         self.query_one('#outside').loading = True
-        self.query_one('#details').border_title = "详细"
-        self.query_one('#details').border_subtitle = "总共 0"
-        self.query_one('#details').loading = True
+        self.query_one('#details_switcher').border_title = "详细"
+        self.query_one('#details_switcher').border_subtitle = "总共 0"
+        self.query_one('#details_switcher').loading = True
+        self.query_one('#details_switcher').can_focus = True
         self.query_one('#Introduction').border_title = "日志"
         self.query_one('#instruction_display').border_title = 'PID'
         self.query_one('#input_command').border_title = '搜索'
@@ -207,15 +283,10 @@ geoip更新时间: 2024-08-20
         self.update_tables()
         network_table = self.query_one('#network')
         network_table.cursor_type = next(cycle(["row"]))
-        #network_table.add_columns(*("网卡", "上传", "下载"))
         network_table.add_column("网卡",key='name')
         network_table.add_column("上传",key='up')
         network_table.add_column("下载",key='down')
-        for row in self.network:
-            styled_row = [
-                Text(str(cell),style="##008000",justify="center") for cell in row
-            ]
-            network_table.add_row(*styled_row)
+        network_table.add_row(*self.network)
 
         listen_table = self.query_one('#listen')
         listen_table.cursor_type = next(cycle(["row"])) 
@@ -229,11 +300,7 @@ geoip更新时间: 2024-08-20
         listen_table.add_column("下载",key='down')
         listen_table.add_column("CPU",key='cpu')
         listen_table.add_column("内存",key='men')
-        for row2 in self.listen:
-            styled_row = [
-                Text(str(cell2),style="##008000",justify="center") for cell2 in row2
-            ]
-            listen_table.add_row(*styled_row)
+        listen_table.add_row(*self.listen)
         
         details_table = self.query_one('#details')
         details_table.cursor_type = next(cycle(["row"])) 
@@ -242,10 +309,8 @@ geoip更新时间: 2024-08-20
         details_table.add_column("上传",key='up')
         details_table.add_column("下载",key='down')
         details_table.add_column("地区",key='area')
-        for row3 in self.detailed:
-            details_table.add_row(*row3)
+        details_table.add_row(*self.detailed)
 
-    
         outside_table = self.query_one('#outside')
         outside_table.cursor_type = next(cycle(["row"])) 
         outside_table.add_column("PID",key='pid')
@@ -256,15 +321,18 @@ geoip更新时间: 2024-08-20
         outside_table.add_column("下载",key='down')
         outside_table.add_column("CPU",key='cpu')
         outside_table.add_column("内存",key='men')
-        for row4 in self.outside:
-            styled_row = [
-                Text(str(cell4),style="##008000",justify="center") for cell4 in row4
-            ]
-            outside_table.add_row(*styled_row)
+        outside_table.add_row(*self.outside)
 
     #监视network变量的改变，改变则触发事件
     def watch_network(self) -> None:
         network_dom = self.query_one("#network")
+        network_dom.rows = {}
+        network_dom._row_locations = TwoWayDict({})
+        network_dom._styles_cache = StylesCache()
+        network_dom.clear_cached_dimensions()
+        network_dom._update_styles()
+        FIFOCache(1).clear()
+        #LRUCache(1).clear()
         network_dom.clear()
         network_dom.add_rows(self.network)
         row_number = self.query_one('#network').row_count
@@ -273,7 +341,10 @@ geoip更新时间: 2024-08-20
     #监视listen变量的改变，改变则触发事件
     def watch_listen(self) -> None:
         listen_dom = self.query_one('#listen')
+        log = self.query_one(Log)
+        listen_dom._styles_cache = StylesCache()
         listen_dom.clear()
+        listen_dom.clear_cached_dimensions()
         for i in self.listen:
             data = list(i)
             listen_dom.add_row(*data,key=str(i[0]) + "_" + str(i[1]) + "_" + str(i[2]) + "_" + str(i[3]) )
@@ -289,7 +360,11 @@ geoip更新时间: 2024-08-20
     #监视outside变量的改变，改变则触发事件
     def watch_outside(self) -> None:
         outside_dom = self.query_one('#outside')
+        outside_dom.rows = {}
+        outside_dom._styles_cache = StylesCache()
+        outside_dom._row_locations = TwoWayDict({})
         outside_dom.clear()
+        outside_dom.clear_cached_dimensions()
         #outside_dom.add_rows(self.outside)
         for i in self.outside:
             data = list(i)
@@ -307,48 +382,69 @@ geoip更新时间: 2024-08-20
     def watch_detailed(self) -> None:
         log = self.query_one(Log)
         details_dom = self.query_one('#details')
+        details_switcher_dom = self.query_one('#details_switcher')
         #框架bug，处理手段：清空数据
         details_dom.rows = {}
+        details_dom._styles_cache = StylesCache()
+        details_switcher_dom._styles_cache = StylesCache()
         details_dom._row_locations = TwoWayDict({})
         details_dom.clear()
+        details_dom.clear_cached_dimensions()
         for i in self.detailed:
             data = list(i)
+            random_value = self.generate_random_value()
             details_dom.add_row(*data)
         row_number = self.query_one('#details').row_count
-        details_dom.border_subtitle = "总共 " + str(row_number)
+        self.query_one('#details_switcher').border_subtitle = "总共 " + str(row_number)
+        #details_dom.border_subtitle = "总共 " + str(row_number)
         
+    def generate_random_value(self):
+        # 获取当前时间的时间戳
+        timestamp = str(int(time.time() * 1000))  # 将时间戳转换为毫秒级
+        # 生成一个随机字符串
+        random_str = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+        # 组合时间戳和随机字符串
+        unique_value = f"{timestamp}_{random_str}"
+        return unique_value
+    
     #点击表格触发事件
     def on_data_table_row_selected(self,event):
         log = self.query_one(Log)
         value =  event.control.get_row(event.row_key)
-        if self.log_value != value[0]:
-            if event.control.name == 'listen':
-                self.listen_value = value
-                self.pid_number = value[0]
-                cmd = self.selectPidCommand(value[0])
-                log.write_line('\n查询: \n')
-                log.write_line('  PID的指令: ' + str(cmd))
-                log.write_line('  PID是: ' + str(self.pid_number))
-                instruction_display = self.query_one("#instruction_display")
-                instruction_display.update('当前PID: ' + value[0])
-                self.outside_value = None
+        # if self.log_value != value[0]:
+        if event.control.name == 'listen':
+            self.listen_value = value
+            self.pid_number = value[0]
+            self.pid_port = value[3]
+            cmd = self.selectPidCommand(value[0])
+            log.write_line('\n 查询: \n')
+            log.write_line('  PID的指令: ' + str(cmd))
+            log.write_line('  PID是: ' + str(self.pid_number))
+            log.write_line('  端口是: ' + str(self.pid_port))
+            instruction_display = self.query_one("#instruction_display")
+            instruction_display.update('当前PID: ' + value[0])
+            self.outside_value = None
+            self.log_value = value[0]
+            self.listen_or_outsude = True
+        if event.control.name == 'outside':
+            self.outside_value = value
+            self.pid_number = value[0]
+            cmd = self.selectPidCommand(value[0])
+            log.write_line('\n 查询: \n')
+            log.write_line('  PID的指令: ' + str(cmd))
+            log.write_line('  PID是: ' + str(self.pid_number))
+            instruction_display = self.query_one("#instruction_display")
+            instruction_display.update('当前PID: ' + value[0])
+            self.listen_value = None
+            self.log_value = value[0]
+            self.listen_or_outsude = False
+        if event.control.name == "details":
+            if self.query_one('#details_switcher').current == 'details':
+                log.write_line('\n 选择的IP: \n  ' + str(value[0]))
                 self.log_value = value[0]
-                self.listen_or_outsude = True
-            if event.control.name == 'outside':
-                self.outside_value = value
-                self.pid_number = value[0]
-                cmd = self.selectPidCommand(value[0])
-                log.write_line('\n查询: \n')
-                log.write_line('  PID的指令: ' + str(cmd))
-                log.write_line('  PID是: ' + str(self.pid_number))
-                instruction_display = self.query_one("#instruction_display")
-                instruction_display.update('当前PID: ' + value[0])
-                self.listen_value = None
-                self.log_value = value[0]
-                self.listen_or_outsude = False
-            if event.control.name == "details":
-                log.write_line('\n选择的IP: \n  ' + str(value[0]))
-                self.log_value = value[0]
+                self.ip = str(value[0])
+            elif self.query_one('#details_switcher').current == 'box_warning':
+                log.write_line('\n 错误: 正在操作IP封禁,请勿选择其他IP地址...')
                 #使用api请求显示详细的ip信息
                 #self.identify_address(value[1])
 
@@ -359,18 +455,68 @@ geoip更新时间: 2024-08-20
         if event.key == 'enter':
             pass
 
+    def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        log = self.query_one(Log)
+        if event.control.id == 'warning_checkbox' and event.value == True:
+            log.write_line('\n ' + str(event.control.label + ": 已被勾选"))
+            self.warning_checkbox_status = True
+        elif event.control.id == 'warning_checkbox' and event.value == False:
+            log.write_line('\n ' + str(event.control.label) + ": 已取消勾选")
+            self.warning_checkbox_status = False
+
     #按钮消息接收(导出ip按钮)
     def on_button_pressed(self, event: Button.Pressed) -> None:
         log = self.query_one(Log)
-        log.write_line('\n开始导出IP列表信息,耐心等待...')
+        warning_box_dom = self.query_one('#box_warning')
+        details_switcher_dom = self.query_one('#details_switcher')
+        #导出ip列表按钮
         if event.button.id == 'export_ip':
+            log.write_line('\n 开始导出IP列表信息,耐心等待...')
             export_file_path = os.getcwd() + '/' + 'ip.txt'
             with open(export_file_path, 'w') as f:
                 for i in self.detailed:
                     keys = ['ip','port','up','down','location']
                     f.write(json.dumps(dict(zip(keys,i)),ensure_ascii=False) + '\n')
-            log.write_line('导出IP详情结束')
-            log.write_line('导出路径: ' + export_file_path)
+            log.write_line(' 导出IP详情结束')
+            log.write_line(' 导出路径: ' + export_file_path)
+
+        #封禁ip按钮
+        elif event.button.id == 'ban_ip':
+            warning_text_dom = self.query_one('#warning_text')
+            if self.ip == None:
+                log.write_line('\n 警告: 未选择IP,无法封禁!')
+                log.write_line(' 请选择一个IP后重试!')
+            else:
+                if self.warning_checkbox_status == False:
+                    warning_text_dom.update(self.warning_text.format(self.ip))
+                    log.write_line('\n 警告: [' + self.ip + ']执行危险操作...')
+                    log.write_line(' 请检查,以防误操作!')
+                    details_switcher_dom.current = 'box_warning'
+                elif self.warning_checkbox_status == True:
+                    block_ip_status = self.block_ip(self.ip)
+                    if block_ip_status == True:
+                        log.write_line('\n 封禁成功!')
+                        log.write_line(' 封禁IP: ' + self.ip)
+                    else:
+                        log.write_line('\n 封禁失败!')
+                        log.write_line(' 错误: ' + str(block_ip_status))
+            # self.query_one('#details_switcher').current = 'box_warning'
+
+        #确认封禁
+        elif event.button.id == 'yes_button':
+            block_ip_status = self.block_ip(self.ip)
+            if block_ip_status == True:
+                log.write_line('\n 封禁成功!')
+                log.write_line(' 封禁IP: ' + self.ip)
+            else:
+                log.write_line('\n 封禁失败!')
+                log.write_line(' 错误: ' + str(block_ip_status))
+            details_switcher_dom.current = 'details'
+        #取消封禁
+        elif event.button.id == 'no_button':
+            log.write_line('\n 取消IP封禁操作,关闭警告窗口...')
+            details_switcher_dom.current = 'details'
+
     #快捷键绑定事件
     def action_slow_sleep_time(self) -> None:
         self.sleep_time = 5
@@ -439,22 +585,6 @@ geoip更新时间: 2024-08-20
             ORDER BY 
                 write DESC
             """
-    #异步识别ip，使用太平洋网络接口
-    # @work(exclusive=True,thread=True)
-    # async def identify_address(self,ip):
-    #     try:
-    #         headers = {
-    #             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0'
-    #         }
-    #         url = 'http://whois.pconline.com.cn/ipJson.jsp?ip={}&json=true'.format(ip)
-
-    #         response = requests.get(url=url, headers=headers, timeout=3)
-    #         ret = response.json()['addr']
-    #         log = self.query_one(Log)
-    #         log.write_line(str(ret) + '\n')
-    #     except Exception:  
-    #         log = self.query_one(Log) 
-    #         log.write_line('识别IP失败\n')
 
     #定时器执行的任务
     @work(exclusive=True,thread=True)
@@ -479,11 +609,11 @@ geoip更新时间: 2024-08-20
             self.outside = self.search(name='outside',data=self.selectTotalOut(conn=conn))
             self.network = self.search(name='network',data=self.networkCardTraffic(cat_command,cat_command_sleep_1))
             if self.pid_number:
-                self.detailed = self.search(name='detailed',data=self.selectDetails(conn=conn,pid=self.pid_number))
+                self.detailed = self.search(name='detailed',data=self.selectDetails(conn=conn,pid=self.pid_number,port=self.pid_port))
             self.query_one('#outside').loading = False
             self.query_one('#network').loading = False
             self.query_one('#listen').loading = False
-            self.query_one('#details').loading = False
+            self.query_one('#details_switcher').loading = False
             time.sleep(self.sleep_time)
 
     def search(self,name,data) -> None:
@@ -533,6 +663,17 @@ geoip更新时间: 2024-08-20
 
             except Exception:
                 return ("null")
+
+    #禁止ip访问
+    def block_ip(self,ip):
+        try:
+            # 使用 sudo 执行 iptables 命令
+            subprocess.run(['sudo', 'iptables', '-A', 'INPUT', '-s', ip, '-j', 'DROP'], check=True)
+            return True
+        except subprocess.CalledProcessError as e:
+            return (f"执行 iptables 命令时出错: {e}")
+        except Exception as e:
+            return (f"发生未知错误: {e}")
 
     #获取执行的指令
     def selectPidCommand(self,pid_number):
@@ -596,18 +737,6 @@ geoip更新时间: 2024-08-20
         cursor.close()
         return conn
 
-    # #pidstat命令结果数据处理
-    # def pidstatDataProcessing(self,data):
-    #     pidstat_data_all = []
-    #     for line in data.splitlines():
-    #         pidstat_dict = {}
-    #         pidstat_pid_info = line.split()
-    #         pidstat_dict['pid'] = pidstat_pid_info[2]
-    #         pidstat_dict['read'] = pidstat_pid_info[3]
-    #         pidstat_dict['write'] = pidstat_pid_info[4]
-    #         pidstat_data_all.append(pidstat_dict)
-    #     return pidstat_data_all
-
     #ps命令结果数据处理
     def psDataProcessing(self,data):
         ps_data_all = []
@@ -615,8 +744,8 @@ geoip更新时间: 2024-08-20
             ps_dict = {}
             ps_pid_info = line.split()
             ps_dict['pid'] = ps_pid_info[1]
-            ps_dict['cpu'] = ps_pid_info[2]
-            ps_dict['men'] = ps_pid_info[3]
+            ps_dict['cpu'] = ps_pid_info[2] + '%'
+            ps_dict['men'] = ps_pid_info[3] + '%'
             ps_data_all.append(ps_dict)
         return ps_data_all
 
@@ -646,10 +775,10 @@ geoip更新时间: 2024-08-20
                 one_local_info = one_tcp_rinse_list[0].replace('::ffff:','').split(":")
             except IndexError:
                 continue
-            one_local_ip = one_local_info[0]
+            one_local_ip = one_local_info[0].replace('::ffff:','').split(":")[0]
             one_local_port = one_local_info[1]
             one_remote_info = one_tcp_rinse_list[1].replace('::ffff:','').split(":")
-            one_remote_ip = one_remote_info[0]
+            one_remote_ip = one_remote_info[0].replace('::ffff:','').split(":")[0]
             one_remote_port = one_remote_info[1]
             try:
                 one_bytes_acked = difflib.get_close_matches('bytes_acked',one_tcp_rinse_list,cutoff=0.6)[0].split(":")
@@ -689,10 +818,10 @@ geoip更新时间: 2024-08-20
                 two_local_info = two_tcp_rinse_list[0].replace('::ffff:','').split(":")
             except IndexError:
                 continue
-            two_local_ip = two_local_info[0]
+            two_local_ip = two_local_info[0].replace('::ffff:','').split(":")[0]
             two_local_port = two_local_info[1]
             two_remote_info = two_tcp_rinse_list[1].replace('::ffff:','').split(":")
-            two_remote_ip = two_remote_info[0]
+            two_remote_ip = two_remote_info[0].replace('::ffff:','').split(":")[0]
             two_remote_port = two_remote_info[1]
             try:
                 two_bytes_acked = difflib.get_close_matches('bytes_acked',two_tcp_rinse_list,cutoff=0.6)[0].split(":")
@@ -725,11 +854,11 @@ geoip更新时间: 2024-08-20
                 continue
             else:
                 netstat_all_data = i.split()
-                local_info = netstat_all_data[3].replace('[::]','::')
-                local_ip = local_info.split(':')[0]
+                local_info = netstat_all_data[3].replace('[::]','::').replace('::ffff:','')
+                local_ip = local_info.split(':')[0].replace('::ffff:','').split(":")[0]
                 local_port = local_info.split(':')[1]
                 remote_info = netstat_all_data[4].replace('[::]','::')
-                remote_ip = remote_info.split(':')[0]
+                remote_ip = remote_info.split(':')[0].replace('::ffff:','').split(":")[0]
                 remote_port = remote_info.split(":")[1]
                 state = netstat_all_data[0].replace('ESTAB','ESTABLISHED')
                 pid_programName = netstat_all_data[-1].replace('users:(','').replace('))',')').replace('"','').split('),')[-1].replace('(','').replace('pid=','').split(',')
@@ -744,11 +873,11 @@ geoip更新时间: 2024-08-20
                 except IndexError:
                     program_name = "-"
                 if local_ip == "":
-                    local_ip = local_info
+                    local_ip = local_info.replace('::ffff:','').split(":")[0]
                 if local_port == "":
                     local_port = local_info.split(':')[-1]
                 if remote_ip == "":
-                    remote_ip = remote_info
+                    remote_ip = remote_info.replace('::ffff:','').split(":")[0]
                 if remote_port == "":
                     remote_port = remote_info.split(":")[-1]
             netstat_dict['local_ip'] = local_ip
@@ -945,13 +1074,13 @@ geoip更新时间: 2024-08-20
             if "Receive" in one_line or "bytes" in one_line:
                 continue
             one_line_list = one_line.split()
-            one_face = one_line_list[0]
+            one_face = one_line_list[0].replace(":","")
             one_rbytes = one_line_list[1]
             one_tbytes = one_line_list[9]
             for two_line in data_sleep_1.splitlines():
                 contents = []
                 two_line_list=two_line.split()
-                two_face = two_line_list[0]
+                two_face = two_line_list[0].replace(":","")
                 if one_face == two_face:
                     two_rbytes = two_line_list[1]
                     two_tbytes = two_line_list[9]
@@ -964,7 +1093,7 @@ geoip更新时间: 2024-08-20
         return table
 
     #获取详细流量数据
-    def selectDetails(self,conn,pid):
+    def selectDetails(self,conn,pid,port):
         select_conn = conn.cursor()
         if self.listen_or_outsude:
             select_established_sql = '''
@@ -985,8 +1114,9 @@ geoip更新时间: 2024-08-20
                     AND netstat.remote_ip == two.remote_ip 
                     AND netstat.remote_port == two.remote_port 
                 WHERE 
-                    netstat.local_port in (SELECT local_port from net WHERE pid = ?)
+                    netstat.local_port =  ?
             ''' + self.pid_order_by + ';'
+            select_established_data =select_conn.execute(select_established_sql,(port,)).fetchall()
         else:
             select_established_sql = '''
             /*查询详细pid进程的连接信息*/
@@ -1008,7 +1138,7 @@ geoip更新时间: 2024-08-20
                 WHERE 
                     netstat.pid = ?
             ''' + self.pid_order_by + ';'
-        select_established_data =select_conn.execute(select_established_sql,(pid,)).fetchall()
+            select_established_data =select_conn.execute(select_established_sql,(pid,)).fetchall()
         table = []
         for row in select_established_data:       
             row_list = list(row)
@@ -1025,7 +1155,7 @@ def command_exists(cmd):
 def main():
     #运行tui界面
     app = GridLayout()
-    app.run()   
+    app.run()  
 
 if __name__ == "__main__":
     main()

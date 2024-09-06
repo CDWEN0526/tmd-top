@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="tmd-top",
-    version="2.1.5",
+    version="2.1.6",
     author="Davin",
     author_email="949178863@qq.com",
     description="linux服务器网络流量分析工具，详细到ip连接情况",
@@ -19,7 +19,7 @@ setup(
     },
     python_requires=">=3.8",  # 指定支持的Python版本
     install_requires=[
-        "textual==0.76.0",
+        "textual==0.79.1",
         "typing_extensions==4.9.0",
         "rich==13.7.1",
         "geoip2==4.8.0",
