@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 from textual.app import App,ComposeResult
-from textual.widgets import Static,Header,Footer,DataTable,Input,Log,Button,TextArea,Label,Checkbox,ContentSwitcher
-from textual.containers import ScrollableContainer
-from textual.containers import Horizontal, Vertical,VerticalScroll
+from textual.widgets import Static,Header,Footer,DataTable,Input,Log,Button,Label,Checkbox,ContentSwitcher
+from textual.containers import Horizontal,VerticalScroll
 from textual.widgets.data_table import Column 
+from textual.widgets.data_table import RowDoesNotExist
 from itertools import cycle
 from rich.text import Text
 from textual import events
-from textual.cache import FIFOCache,LRUCache
+from textual.cache import LRUCache
 from textual._two_way_dict import TwoWayDict
 import sqlite3
 import sys
@@ -16,7 +16,6 @@ from textual.reactive import reactive
 import difflib
 import re
 from textual import work
-from textual.coordinate import Coordinate
 from textual._two_way_dict import TwoWayDict
 from textual._styles_cache import StylesCache
 from typing_extensions import Self
@@ -52,6 +51,7 @@ class DataTables(DataTable):
             #self.hover_coordinate = Coordinate(0, 0)
             self._label_column = Column(self._label_column_key, Text(), auto_width=True)
             self._labelled_row_exists = False
+            self._clear_caches()
             self.refresh()
             #self.scroll_x = 0
             #self.scroll_y = 0
@@ -180,8 +180,8 @@ class GridLayout(App):
  gitee: https://gitee.com/Davin168/tmd-top
  github: https://github.com/CDWEN0526/tmd-top
  email: 949178863@qq.com
- version: v2.1.6
- geoip更新时间: 2024-08-20
+ version: v2.1.7
+ geoip更新时间: 2024-10-28
  更新: pip install tmd-top --upgrade
  复制: 按tab键切换窗口,按住shift键不放,鼠标可选复制;
     """
@@ -225,39 +225,45 @@ class GridLayout(App):
     network = reactive([])
     detailed = reactive([])
     outside = reactive([])
-    pid_number = reactive(None)
+    #pid_number = reactive(None)
+    pid_number = None
     pid_port = None
     davin = None
     sleep_time = 0.8
     listen_value = None
     outside_value = None
+    details_value = None
     ip = None
     warning_checkbox_status = False
     log_value = None
     search_string = None
     listen_or_outsude = None
     AUTO_FOCUS = '#network'
+    debug = False 
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        yield DataTables(id="network", classes="box",name="network")
-        yield DataTables(classes="box", id="listen",name="listen")
-        with ContentSwitcher(initial='details',classes="box",id="details_switcher"):
-            yield DataTables(id="details",name="details")
-            with VerticalScroll(id="box_warning"):
-                yield Label(id='warning_text')
-                yield Checkbox("不再提醒",id="warning_checkbox")
-                yield Horizontal(
-                    Button("[确定]",classes="yes_or_no_button",id="yes_button"),
-                    Button("[取消]",classes="yes_or_no_button",id="no_button")
-                )
-        yield Log(id="Introduction",classes="box")
-        yield DataTables(classes="box",id="outside",name="outside")
-        yield Static('当前PID: None',classes="box",id="instruction_display")
-        yield Input(placeholder="请输入搜索关键词,支持模糊搜索",id="input_command")
-        yield Button('[点击导出IP列表到当前路径下的ip.txt文件]',classes='box',id='export_ip')
-        yield Button('[点击IP封禁]',classes='box',id='ban_ip')
-        yield Footer()
+        try:
+            yield Header(show_clock=True)
+            yield DataTable(id="network", classes="box",name="network")
+            yield DataTable(classes="box", id="listen",name="listen")
+            with ContentSwitcher(initial='details',classes="box",id="details_switcher",name="details_switcher"):
+                yield DataTable(id="details",name="details")
+                with VerticalScroll(id="box_warning"):
+                    yield Label(id='warning_text')
+                    yield Checkbox("不再提醒",id="warning_checkbox")
+                    yield Horizontal(
+                        Button("[确定]",classes="yes_or_no_button",id="yes_button"),
+                        Button("[取消]",classes="yes_or_no_button",id="no_button")
+                    )
+            yield Log(id="Introduction",classes="box")
+            yield DataTable(classes="box",id="outside",name="outside")
+            yield Static('当前PID: None',classes="box",id="instruction_display")
+            yield Input(placeholder="请输入搜索关键词,支持模糊搜索",id="input_command")
+            yield Button('[点击导出IP列表到当前路径下的ip.txt文件]',classes='box',id='export_ip')
+            yield Button('[点击IP封禁]',classes='box',id='ban_ip')
+            yield Footer()
+        except Exception:
+            pass
 
     def on_mount(self) -> None:
         self.title = "TMD-TOP"
@@ -280,7 +286,6 @@ class GridLayout(App):
         self.query_one('#input_command').border_title = '搜索'
         log = self.query_one(Log)
         log.write_line(self.IntroductionText)
-        self.update_tables()
         network_table = self.query_one('#network')
         network_table.cursor_type = next(cycle(["row"]))
         network_table.add_column("网卡",key='name')
@@ -290,50 +295,47 @@ class GridLayout(App):
 
         listen_table = self.query_one('#listen')
         listen_table.cursor_type = next(cycle(["row"])) 
-        listen_table.add_column("PID",key='pid')
-        listen_table.add_column("名称",key='name')
-        listen_table.add_column("监听地址",key='ip')
-        listen_table.add_column("监听端口",key='port')
-        listen_table.add_column("IP数",key='ip_number')
-        listen_table.add_column("连接数",key='connect_number')
-        listen_table.add_column("上传",key='up')
-        listen_table.add_column("下载",key='down')
-        listen_table.add_column("CPU",key='cpu')
-        listen_table.add_column("内存",key='men')
-        listen_table.add_row(*self.listen)
+        listen_table.add_column("PID",key='1')
+        listen_table.add_column("名称",key='2')
+        listen_table.add_column("监听地址",key='3')
+        listen_table.add_column("监听端口",key='4')
+        listen_table.add_column("IP数",key='5')
+        listen_table.add_column("连接数",key='6')
+        listen_table.add_column("上传",key='7')
+        listen_table.add_column("下载",key='8')
+        listen_table.add_column("CPU",key='9')
+        listen_table.add_column("内存",key='10')
         
         details_table = self.query_one('#details')
         details_table.cursor_type = next(cycle(["row"])) 
-        details_table.add_column("客户端IP",key='ip')
-        details_table.add_column("客户端PORT",key='port')
-        details_table.add_column("上传",key='up')
-        details_table.add_column("下载",key='down')
-        details_table.add_column("地区",key='area')
-        details_table.add_row(*self.detailed)
+        details_table.add_column("客户端IP",key='1')
+        details_table.add_column("客户端PORT",key='2')
+        details_table.add_column("上传",key='3')
+        details_table.add_column("下载",key='4')
+        details_table.add_column("地区",key='5')
 
         outside_table = self.query_one('#outside')
         outside_table.cursor_type = next(cycle(["row"])) 
-        outside_table.add_column("PID",key='pid')
-        outside_table.add_column("名称",key='name')
-        outside_table.add_column("IP数",key='ip')
-        outside_table.add_column("连接数",key='connect')
-        outside_table.add_column("上传",key='up')
-        outside_table.add_column("下载",key='down')
-        outside_table.add_column("CPU",key='cpu')
-        outside_table.add_column("内存",key='men')
-        outside_table.add_row(*self.outside)
+        outside_table.add_column("PID",key='1')
+        outside_table.add_column("名称",key='2')
+        outside_table.add_column("IP数",key='3')
+        outside_table.add_column("连接数",key='4')
+        outside_table.add_column("上传",key='5')
+        outside_table.add_column("下载",key='6')
+        outside_table.add_column("CPU",key='7')
+        outside_table.add_column("内存",key='8')
+
+        log.write_line(f"当前pid: {self.pid_number}")
+        log.write_line(f"当前pid_port: {self.pid_port}")
+        self.update_tables()
 
     #监视network变量的改变，改变则触发事件
     def watch_network(self) -> None:
         network_dom = self.query_one("#network")
         network_dom.rows = {}
-        network_dom._row_locations = TwoWayDict({})
-        network_dom._styles_cache = StylesCache()
-        network_dom.clear_cached_dimensions()
-        network_dom._update_styles()
-        FIFOCache(1).clear()
-        #LRUCache(1).clear()
         network_dom.clear()
+        network_dom.recompose()
+        network_dom.rows = {}
         network_dom.add_rows(self.network)
         row_number = self.query_one('#network').row_count
         network_dom.border_subtitle = "总共 " + str(row_number)
@@ -341,62 +343,78 @@ class GridLayout(App):
     #监视listen变量的改变，改变则触发事件
     def watch_listen(self) -> None:
         listen_dom = self.query_one('#listen')
-        log = self.query_one(Log)
-        listen_dom._styles_cache = StylesCache()
-        listen_dom.clear()
-        listen_dom.clear_cached_dimensions()
-        for i in self.listen:
-            data = list(i)
-            listen_dom.add_row(*data,key=str(i[0]) + "_" + str(i[1]) + "_" + str(i[2]) + "_" + str(i[3]) )
-        if self.listen_value != None:
-            try:
-                index_data = listen_dom.get_row_index(row_key=str(self.listen_value[0] + "_" + self.listen_value[1] + "_" + self.listen_value[2] + "_" + self.listen_value[3]))
-            except Exception:
-                index_data = 0
-            listen_dom.move_cursor(row=int(index_data))
-        row_number = self.query_one('#listen').row_count
-        listen_dom.border_subtitle = "总共 " + str(row_number)
+        row_number = listen_dom.row_count
+        try:
+            listen_dom.clear()
+            for i in self.listen:
+                data = list(i)[1:]
+                try:
+                    listen_dom.get_row_index(row_key=str(i[0]))
+                    for l in data:
+                        listen_dom.update_cell(row_key=str(i[0]),column_key=str(int(data.index(l)) + 1),value=str(l))
+                except RowDoesNotExist:
+                    listen_dom.add_row(*data,key=str(i[0]))
 
+            row_number = listen_dom.row_count
+            listen_dom.border_subtitle = "总共 " + str(row_number)
+            for s in range(int(len(self.listen) +1 ),row_number):
+                try:
+                    listen_dom.remove_row(str(s))
+                except RowDoesNotExist:
+                    pass
+        except Exception as e:
+            pass
+            
     #监视outside变量的改变，改变则触发事件
     def watch_outside(self) -> None:
         outside_dom = self.query_one('#outside')
-        outside_dom.rows = {}
-        outside_dom._styles_cache = StylesCache()
-        outside_dom._row_locations = TwoWayDict({})
-        outside_dom.clear()
-        outside_dom.clear_cached_dimensions()
-        #outside_dom.add_rows(self.outside)
-        for i in self.outside:
-            data = list(i)
-            outside_dom.add_row(*data,key=str(i[0]) + '_' + str(i[1]))
-        if self.outside_value != None:
-            try:
-                index_data = outside_dom.get_row_index(row_key=str(self.outside_value[0] + "_" + self.outside_value[1]))
-            except Exception:
-                index_data = 0
-            outside_dom.move_cursor(row=int(index_data))
-        row_number = self.query_one('#outside').row_count
-        outside_dom.border_subtitle = "总共 " + str(row_number)
-    
+        row_number = outside_dom.row_count
+        try:
+            outside_dom.clear()
+            for i in self.outside:
+                data = list(i)[1:]
+                try:
+                    outside_dom.get_row_index(row_key=str(i[0]))
+                    for l in data:
+                            outside_dom.update_cell(row_key=str(i[0]),column_key=str(int(data.index(l)) + 1),value=str(l))
+                except RowDoesNotExist:
+                    outside_dom.add_row(*data,key=str(i[0]))
+
+            row_number = outside_dom.row_count
+            outside_dom.border_subtitle = "总共 " + str(row_number)
+            for s in range(len(self.outside),row_number):
+                try:
+                    outside_dom.remove_row(str(s))
+                except RowDoesNotExist:
+                    pass
+        except Exception:
+            pass
+
     #监视detailed变量的改变，改变则触发事件
     def watch_detailed(self) -> None:
-        log = self.query_one(Log)
         details_dom = self.query_one('#details')
         details_switcher_dom = self.query_one('#details_switcher')
-        #框架bug，处理手段：清空数据
-        details_dom.rows = {}
-        details_dom._styles_cache = StylesCache()
-        details_switcher_dom._styles_cache = StylesCache()
-        details_dom._row_locations = TwoWayDict({})
-        details_dom.clear()
-        details_dom.clear_cached_dimensions()
-        for i in self.detailed:
-            data = list(i)
-            random_value = self.generate_random_value()
-            details_dom.add_row(*data)
-        row_number = self.query_one('#details').row_count
-        self.query_one('#details_switcher').border_subtitle = "总共 " + str(row_number)
-        #details_dom.border_subtitle = "总共 " + str(row_number)
+        row_number = details_dom.row_count
+        try:
+            details_dom.clear()
+            for i in self.detailed:
+                data = list(i)[1:]
+                try:
+                    details_dom.get_row_index(row_key=str(i[0]))
+                    for l in data:
+                        details_dom.update_cell(row_key=str(i[0]),column_key=str(int(data.index(l)) + 1),value=str(l))
+                except RowDoesNotExist:
+                    details_dom.add_row(*data,key=str(i[0]))
+
+            row_number = details_dom.row_count
+            details_switcher_dom.border_subtitle = "总共 " + str(row_number)
+            for s in range(len(self.detailed),row_number):
+                try:
+                    details_dom.remove_row(str(s))
+                except RowDoesNotExist:
+                    pass
+        except Exception:
+            pass
         
     def generate_random_value(self):
         # 获取当前时间的时间戳
@@ -423,7 +441,6 @@ class GridLayout(App):
             log.write_line('  端口是: ' + str(self.pid_port))
             instruction_display = self.query_one("#instruction_display")
             instruction_display.update('当前PID: ' + value[0])
-            self.outside_value = None
             self.log_value = value[0]
             self.listen_or_outsude = True
         if event.control.name == 'outside':
@@ -437,8 +454,10 @@ class GridLayout(App):
             instruction_display.update('当前PID: ' + value[0])
             self.listen_value = None
             self.log_value = value[0]
+            self.pid_port = None
             self.listen_or_outsude = False
         if event.control.name == "details":
+            self.details_value = value
             if self.query_one('#details_switcher').current == 'details':
                 log.write_line('\n 选择的IP: \n  ' + str(value[0]))
                 self.log_value = value[0]
@@ -538,12 +557,19 @@ class GridLayout(App):
             ORDER BY 
                 connect_ip DESC
             """
+        self.listen_value = None
+        self.outside_value = None
+        self.details_value = None
     #快捷键绑定事件
     def action_sort_ip(self) -> None:
         self.order_by = """
             ORDER BY 
                 ip_num DESC
             """
+        self.listen_value = None
+        self.outside_value = None
+        self.details_value = None
+        
     #快捷键绑定事件
     def action_sort_up(self) -> None:
         self.order_by = """
@@ -554,6 +580,9 @@ class GridLayout(App):
             ORDER BY 
                     upload DESC
             """
+        self.listen_value = None
+        self.outside_value = None
+        self.details_value = None
     #快捷键绑定事件
     def action_sort_down(self) -> None:
         self.order_by = """
@@ -564,35 +593,48 @@ class GridLayout(App):
             ORDER BY 
                     download DESC
             """
+        self.listen_value = None
+        self.outside_value = None
+        self.details_value = None
     #快捷绑定事件
     def action_sort_cpu(self) -> None:
         self.order_by = """
             ORDER BY 
                 cpu DESC
             """
+        self.listen_value = None
+        self.outside_value = None
+        self.details_value = None
     def action_sort_men(self) -> None:
         self.order_by = """
             ORDER BY 
                 men DESC
             """
+        self.listen_value = None
+        self.outside_value = None
+        self.details_value = None
     def action_sort_io_r(self) -> None:
         self.order_by = """
             ORDER BY 
                 read DESC
             """
+        self.listen_value = None
+        self.outside_value = None
+        self.details_value = None
     def action_sort_io_w(self) -> None:
         self.order_by = """
             ORDER BY 
                 write DESC
             """
+        self.listen_value = None
+        self.outside_value = None
+        self.details_value = None
 
     #定时器执行的任务
     @work(exclusive=True,thread=True)
     async def update_tables(self) -> None:
-        current_module_path = os.path.dirname(os.path.abspath(__file__))
-        db_file_path = os.path.join(current_module_path, 'data/tmd-top.db')
         while True:
-            conn = self.connectSqlite(db_file_path)
+            conn = self.connectSqlite()
             cat_command = self.localExecuteCommand("sudo cat /proc/net/dev")
             ss_command = self.localExecuteCommand('sudo ss -ni  state established  && echo "Davin system" && sleep 1 && sudo ss -ni  state established')
             cat_command_sleep_1 = self.localExecuteCommand("sudo cat /proc/net/dev")
@@ -605,11 +647,13 @@ class GridLayout(App):
             self.insertData(conn=conn,table='two',data=two)
             self.insertData(conn=conn,table="net",data=net)
             self.insertData(conn=conn,table='ps',data=ps)
-            self.listen = self.search(name='listen',data=self.selectTotalListen(conn=conn))
-            self.outside = self.search(name='outside',data=self.selectTotalOut(conn=conn))
+            self.search(name='listen',data=self.selectTotalListen(conn=conn))
+            self.search(name='outside',data=self.selectTotalOut(conn=conn))
             self.network = self.search(name='network',data=self.networkCardTraffic(cat_command,cat_command_sleep_1))
-            if self.pid_number:
-                self.detailed = self.search(name='detailed',data=self.selectDetails(conn=conn,pid=self.pid_number,port=self.pid_port))
+            self.search(name='detailed',data=self.selectDetails(conn=conn,pid=self.pid_number,port=self.pid_port))
+            self.listen = self.selectServiceAll(conn=conn)
+            self.outside = self.selectProcessAll(conn=conn)
+            self.detailed = self.selectDetailsAll(conn=conn)
             self.query_one('#outside').loading = False
             self.query_one('#network').loading = False
             self.query_one('#listen').loading = False
@@ -695,8 +739,12 @@ class GridLayout(App):
             sys.exit(0)
 
     #连接sqlite数据库
-    def connectSqlite(self,db_path):
-        conn = sqlite3.connect(db_path)
+    def connectSqlite(self):
+        conn = sqlite3.connect(':memory:')
+        # current_module_path = os.path.dirname(os.path.abspath(__file__))
+        # db_file_path = os.path.join(current_module_path, 'data/tmd-top.db')
+        # conn = sqlite3.connect(db_file_path)
+
         cursor = conn.cursor()
 
         #创建表
@@ -733,6 +781,46 @@ class GridLayout(App):
                             read REAL,
                             write REAL)'''
         )
+        cursor.execute('''CREATE TABLE IF NOT EXISTS network_card (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            network TEXT NOT NULL,
+                            up TEXT NOT NULL,
+                            down TEXT NOT NULL)'''
+        )
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS service (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            pid TEXT NOT NULL,
+                            service TEXT NOT NULL,
+                            bind_ip TEXT NOT NULL,
+                            bind_port TEXT NOT NULL,
+                            uv TEXT NOT NULL,
+                            pv TEXT NOT NULL,
+                            up  TEXT NOT NULL,
+                            down TEXT NOT NULL,
+                            cpu REAL,
+                            men REAL)'''
+        )
+        cursor.execute('''CREATE TABLE IF NOT EXISTS process (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            pid TEXT NOT NULL,
+                            service TEXT NOT NULL,
+                            uv TEXT NOT NULL,
+                            pv TEXT NOT NULL,
+                            up  TEXT NOT NULL,
+                            down TEXT NOT NULL,
+                            cpu REAL,
+                            men REAL)'''
+        )
+        cursor.execute('''CREATE TABLE IF NOT EXISTS details (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        client_ip TEXT NOT NULL,
+                        client_port TEXT NOT NULL,
+                        up  TEXT NOT NULL,
+                        down TEXT NOT NULL,
+                        area TEXT NOT NULL)'''
+        )
+
         conn.commit()
         cursor.close()
         return conn
@@ -903,9 +991,21 @@ class GridLayout(App):
             insert_data.execute('delete from ps;')
         elif table == "pidstat":
             insert_data.execute('delete from pidstat;')
+        # elif table == "network_card":
+        #     insert_data.execute('delete from service_card;')
+        elif table == "service":
+            insert_data.execute("DELETE FROM sqlite_sequence WHERE name='service';")
+            insert_data.execute('delete from service;')
+        elif table == "process":
+            insert_data.execute("DELETE FROM sqlite_sequence WHERE name='process';")
+            insert_data.execute('delete from process;')
+        elif table == "details":
+            insert_data.execute("DELETE FROM sqlite_sequence WHERE name='details';")
+            insert_data.execute('delete from details;')
         else:
             print("Pass in the error table name.")
             sys.exit(0)
+
         if table == "one" or table == "two":    
             for i in data:
                 local_ip = i['local_ip']
@@ -928,7 +1028,6 @@ class GridLayout(App):
                 pid = s['pid']
                 program_name = s['program_name']
                 insert_data.execute('insert into net(local_ip,local_port,remote_ip,remote_port,state,pid,program_name) values(?,?,?,?,?,?,?)',(local_ip,local_port,remote_ip,remote_port,state,pid,program_name))
-        
         elif table == "ps":
             for z in data:
                 ps_pid = z['pid']
@@ -941,9 +1040,42 @@ class GridLayout(App):
                 pidstat_read = k['read']
                 pidstat_write = k['write']
                 insert_data.execute('insert into pidstat(pid,read,write) values(?,?,?)',(pidstat_pid,pidstat_read,pidstat_write))
+        elif table == 'service':
+            for p in data:
+                service_pid = p[0]
+                service_name = p[1]
+                service_ip = p[2]
+                service_port = p[3]
+                service_uv = p[4]
+                service_pv = p[5]
+                service_up = p[6]
+                service_down = p[7]
+                service_cpu = p[8]
+                service_men = p[9]
+                insert_data.execute('insert into service(pid,service,bind_ip,bind_port,uv,pv,up,down,cpu,men) values(?,?,?,?,?,?,?,?,?,?)',(service_pid,service_name,service_ip,service_port,service_uv,service_pv,service_up,service_down,service_cpu,service_men))
+        elif table == "process":
+            for j in data:
+                process_pid = j[0]
+                process_name = j[1]
+                process_uv = j[2]
+                process_pv = j[3]
+                process_up = j[4]
+                process_down = j[5]  
+                process_cpu = j[6]
+                process_men = j[7]
+                insert_data.execute('insert into process(pid,service,uv,pv,up,down,cpu,men) values(?,?,?,?,?,?,?,?)',(process_pid,process_name,process_uv,process_pv,process_up,process_down,process_cpu,process_men))
+        elif table == "details":
+            for d in data:
+                details_client_ip = d[0]
+                details_client_port = d[1]
+                details_up = d[2]
+                details_down = d[3]
+                details_area = d[4]
+                insert_data.execute('insert into details(client_ip,client_port,up,down,area) values(?,?,?,?,?)',(details_client_ip,details_client_port,details_up,details_down,details_area))
         else:
             print("传入错误表名。")
             sys.exit(0)
+
         conn.commit()
         insert_data.close()
 
@@ -1005,8 +1137,8 @@ class GridLayout(App):
                 ps.cpu,
                 ps.men
         ''' + self.order_by + ';'
-        select_conn = conn.cursor()
-        select_linsten_data = select_conn.execute(select_linsten_sql).fetchall() 
+        conn_db = conn.cursor()
+        select_linsten_data = conn_db.execute(select_linsten_sql).fetchall()
         table = []
         for row in select_linsten_data:
             row_list = list(row)
@@ -1017,7 +1149,8 @@ class GridLayout(App):
             row_list[7] = self.convert_network_traffic(row_list[7])
             row_list = [str(item) for item in row_list]
             table.append(tuple(row_list))
-        select_conn.close()
+        conn_db.close()
+        self.insertData(conn=conn, table="service", data=table)
         return table
 
     #查询程序外部连接的流量数据
@@ -1064,6 +1197,7 @@ class GridLayout(App):
             row_list = [str(item) for item in row_list]
             table.append(tuple(row_list))
         select_conn.close()
+        self.insertData(conn=conn, table="process", data=table)
         return table
 
 
@@ -1147,7 +1281,43 @@ class GridLayout(App):
             row_list.append(self.get_ip_info(row_list[0]))
             table.append(tuple(row_list))
         select_conn.close()
+        self.insertData(conn=conn, table="details", data=table)
         return table
+
+    def selectServiceAll(self,conn):
+        select_conn = conn.cursor()
+        select_service_sql = '''
+            select 
+                *
+            from service;
+        '''
+        select_service_data = select_conn.execute(select_service_sql).fetchall()
+        select_conn.close()
+        return select_service_data
+
+
+    def selectProcessAll(self,conn):
+        select_conn = conn.cursor()
+        select_process_sql = '''
+            select 
+                *
+            from process;
+        '''
+        select_process_data = select_conn.execute(select_process_sql).fetchall()
+        select_conn.close()
+        return select_process_data
+
+    def selectDetailsAll(self,conn):
+        select_conn = conn.cursor()
+        select_details_sql = '''
+            select 
+                *
+            from details;
+        '''
+        select_details_data = select_conn.execute(select_details_sql).fetchall()
+        select_conn.close()
+        return select_details_data
+
 
 def command_exists(cmd):
     return subprocess.call(['which', cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
@@ -1155,7 +1325,7 @@ def command_exists(cmd):
 def main():
     #运行tui界面
     app = GridLayout()
-    app.run()  
+    app.run() 
 
 if __name__ == "__main__":
     main()
