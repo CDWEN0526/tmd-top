@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="tmd-top",
-    version="2.1.7",
+    version="2.2.0",
     author="Davin",
     author_email="949178863@qq.com",
     description="linux服务器网络流量分析工具，详细到ip连接情况",
@@ -19,7 +19,7 @@ setup(
     },
     python_requires=">=3.8",  # 指定支持的Python版本
     install_requires=[
-        "textual==0.85.1",
+        "textual==0.87.1",
         "typing_extensions==4.9.0",
         "rich==13.7.1",
         "geoip2==4.8.0",
@@ -33,6 +33,7 @@ setup(
     entry_points={
         'console_scripts': [
             'tmd-top=tmd_top.main:main',
+            'tm=tmd_top.main:main'
         ],
     },
 )
