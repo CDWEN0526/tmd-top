@@ -19,7 +19,7 @@ setup(
     },
     python_requires=">=3.8",  # 指定支持的Python版本
     install_requires=[
-        "textual==0.87.1",
+        "textual==1.0.0",
         "typing_extensions==4.9.0",
         "rich==13.7.1",
         "geoip2==4.8.0",
@@ -33,7 +33,7 @@ setup(
     entry_points={
         'console_scripts': [
             'tmd-top=tmd_top.main:main',
-            'tm=tmd_top.main:main'
+            'tmd=tmd_top.main:main'
         ],
     },
 )

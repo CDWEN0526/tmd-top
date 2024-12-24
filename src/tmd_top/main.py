@@ -31,10 +31,8 @@ class DataTables(DataTable):
 
         def clear(self, columns: bool = False) -> Self:
             """Clear the table.
-
             Args:
                 columns: Also clear the columns.
-
             Returns:
                 The `DataTable` instance.
             """
@@ -59,17 +57,6 @@ class DataTables(DataTable):
             #self.scroll_target_x = 0
             #self.scroll_target_y = 0
             return self
-
-class WarningWindow(Static):
-    def compose(self) -> ComposeResult:
-        yield Label(id='warning_text')
-        yield Checkbox("No more reminders",id="warning_checkbox")
-        yield Horizontal(
-            Button("[Yes]",classes="yes_or_no_button",id="yes_button"),
-            Button("[No]",classes="yes_or_no_button",id="no_button")
-        )
-
-
 
 class GridLayout(App):
     CSS = """
@@ -184,7 +171,7 @@ class GridLayout(App):
  github: https://github.com/CDWEN0526/tmd-top
  email: 949178863@qq.com
  version: v2.2.0
- Geoip update time: 2024-10-28
+ Geoip update time: 2024-12-20
  Update command: pip install tmd-top --upgrade
  Copy text: Press the tab key to switch windows, hold down the shift key, and you can choose to copy with the mouse;
     """
@@ -248,6 +235,10 @@ class GridLayout(App):
     error_iptables_text = "Error executing iptables command"
     unknown_error_text = "an unknown error occurred"
     language = "en"
+    no_more_reminders_text = "No more reminders"
+    yes_text = "Yes"
+    no_text = "No"
+
 
     ENABLE_COMMAND_PALETTE = False
     current_locale = locale.getlocale()
@@ -325,7 +316,7 @@ class GridLayout(App):
  github: https://github.com/CDWEN0526/tmd-top
  email: 949178863@qq.com
  version: v2.2.0
- geoip更新时间: 2024-10-28
+ geoip更新时间: 2024-12-20
  更新: pip install tmd-top --upgrade
  复制: 按tab键切换窗口,按住shift键不放,鼠标可选复制;
         
@@ -389,6 +380,9 @@ class GridLayout(App):
             self.error_iptables_text = "执行iptables命令时出错"
             self.unknown_error_text = "出现未知错误"
             self.language = 'zh-CN'
+            self.no_more_reminders_text = "不再提醒"
+            self.yes_text = "确定"
+            self.no_text = "取消"
 
     def compose(self) -> ComposeResult:
         try:
@@ -399,10 +393,10 @@ class GridLayout(App):
                 yield DataTables(id="details",name="details")
                 with VerticalScroll(id="box_warning"):
                     yield Label(id='warning_text')
-                    yield Checkbox("No more reminders",id="warning_checkbox")
+                    yield Checkbox(self.no_more_reminders_text,id="warning_checkbox")
                     yield Horizontal(
-                        Button("[Yes]",classes="yes_or_no_button",id="yes_button",variant="error"),
-                        Button("[No]",classes="yes_or_no_button",id="no_button",variant="primary")
+                        Button(f"[{self.yes_text}]",classes="yes_or_no_button",id="yes_button",variant="error"),
+                        Button(f"[{self.no_text}]",classes="yes_or_no_button",id="no_button",variant="primary")
                     )
             yield Log(id="Introduction",classes="box",highlight=True)
             yield DataTables(classes="box",id="outside",name="outside")
@@ -558,6 +552,7 @@ class GridLayout(App):
         try:
             details_switcher_dom.refresh()
             details_dom.refresh(layout=True)
+            details_dom._styles_cache.clear()
             details_dom.clear()
             for i in self.detailed:
                 data = list(i)[1:]
