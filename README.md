@@ -20,6 +20,8 @@
 
 ```txt
 python >= 3.8
+
+Linux system
 ```
 
 ###  🌈 Install
@@ -36,11 +38,11 @@ sudo pip install --upgrade tmd-top
 
 ### 📖Usage Instructions
 
-在终端上执行运行tmd-top命令
+Run the tmd-top command on the terminal
 
 ```shell
 root@davin-system:~/tmd-top# tmd-top
-或
+or
 root@davin-system:~/tmd-top# tmd
 ```
 
@@ -48,7 +50,7 @@ root@davin-system:~/tmd-top# tmd
 
 ![1735011021986](image/1735011021986.png)
 
-| 快捷指令 | 说明                       |
+| 快捷指令 | Description                |
 | -------- | -------------------------- |
 | q        | Exit                       |
 | v        | Search by entering a PID   |
